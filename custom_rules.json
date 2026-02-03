@@ -1,0 +1,6 @@
+{
+  "flying": "This creature can't be blocked except by creatures with flying or reach.",
+  "trample": "This creature can deal excess combat damage to the player or planeswalker it's attacking.",
+  "deathtouch": "Any amount of damage this deals to a creature is enough to destroy it.",
+  "lifelink": "Damage dealt by this creature also causes you to gain that much life."
+}
