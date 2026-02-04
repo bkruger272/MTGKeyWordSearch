@@ -11,7 +11,7 @@ const rl = readline.createInterface({
 });
 
 async function getDefinition(keyword) {
-const query = keyword.toLowerCase().trim();
+    const query = keyword.toLowerCase().trim();
 
     // --- NEW: CHECK CUSTOM OVERRIDES FIRST ---
     try {
@@ -30,7 +30,7 @@ const query = keyword.toLowerCase().trim();
         const card = await Scry.Cards.random(`oracle:"${keyword}"`);
         const oracleText = card.oracle_text;
         const reminderMatch = oracleText.match(/\(([^)]+)\)/);
-        
+
         if (reminderMatch) {
             return reminderMatch[1] + " (Source: Scryfall)";
         } else {
