@@ -1,5 +1,7 @@
 {
   "dependencies": {
+    "cors": "^2.8.6",
+    "expo": "^54.0.33",
     "express": "^5.2.1",
     "scryfall-sdk": "^5.0.3"
   }
