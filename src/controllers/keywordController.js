@@ -7,14 +7,17 @@ exports.handleSearch = async (req, res) => {
     const query = req.query.q;
     if (!query) return res.json([]);
 
-    // Split by comma or space to match your original search logic
-    const terms = query.split(/[,\s]+/).filter(t => t.trim() !== "");
+    const terms = query.split(',').map(t => t.trim()).filter(t => t !== "");
     
     try {
-        const results = await Promise.all(terms.map(async (term) => ({
-            name: term,
-            definition: await scryService.getDefinition(term) // Use scryService here
-        })));
+        const results = await Promise.all(terms.map(async (term) => {
+            const result = await scryService.getDefinition(term);
+            return {
+                name: term,
+                definition: result.definition, // Extract from object
+                source: result.source          // Extract from object
+            };
+        }));
         res.json(results);
     } catch (error) {
         res.status(500).json({ error: "Failed to fetch definitions" });

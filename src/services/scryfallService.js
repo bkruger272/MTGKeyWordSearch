@@ -1,11 +1,13 @@
 const fs = require('fs');
-const path = require('path'); // Added for safer file pathing
+const path = require('path');
 const Scry = require("scryfall-sdk");
 
 Scry.setAgent("MTG-Ability-Scanner", "1.0.0");
 
-// Helper to resolve paths since this file is now deep in src/services
 const getFilePath = (filename) => path.join(__dirname, '../../', filename);
+
+// Simple in-memory cache to prevent multiple API calls for the same word
+const scryCache = {};
 
 const isValidKeyword = (term) => {
     try {
@@ -19,7 +21,6 @@ const isValidKeyword = (term) => {
         
         return allKeywords.includes(term.toLowerCase().trim());
     } catch (e) {
-        console.error("Error reading Keywords.json:", e.message);
         return false;
     }
 };
@@ -27,34 +28,59 @@ const isValidKeyword = (term) => {
 const getDefinition = async (keyword) => {
     const query = keyword.toLowerCase().trim();
     
-    // 1. Check Custom Rules
+    // 1. Check Cache
+    if (scryCache[query]) return scryCache[query];
+
+    // 2. Check Custom Rules
     try {
         const customData = JSON.parse(fs.readFileSync(getFilePath('custom_rules.json')));
         if (customData[query]) {
-            return `${customData[query]} (Source: Custom)`; 
+            const result = { definition: customData[query], source: 'custom' };
+            scryCache[query] = result;
+            return result;
         }
-    } catch (e) {
-        // Log error but continue to Scryfall
-    }
+    } catch (e) {}
 
-    // 2. Check Scryfall
+    // 3. Check Scryfall using a direct API call (More reliable than the SDK Search)
     try {
-        const card = await Scry.Cards.random(`oracle:"${keyword}"`);
+        // We use the 'cards/search' endpoint directly
+        const response = await fetch(
+            `https://api.scryfall.com/cards/search?q=kw:"${encodeURIComponent(query)}"+-is:promo+-is:spotlight+not:digital+frame:2015`
+        );
+        const data = await response.json();
+
+        if (data.object === 'error' || !data.data || data.data.length === 0) {
+            throw new Error("Not found");
+        }
+
+        // Always take the first card in the results
+        const card = data.data[0];
         const reminderMatch = card.oracle_text.match(/\(([^)]+)\)/);
         
-        if (reminderMatch) {
-            return `${reminderMatch[1]} (Source: Scryfall)`;
-        }
-        return "Definition found, but no reminder text available. (Source: Scryfall)";
+        const result = {
+            definition: reminderMatch ? reminderMatch[1] : "Official rule found, but no reminder text available.",
+            source: 'scryfall'
+        };
+
+        scryCache[query] = result;
+        return result;
+
     } catch (err) {
-        return "Definition currently unavailable.";
+        console.error("Scryfall Fetch Error:", err.message);
+        return {
+            definition: "Definition currently unavailable.",
+            source: 'error'
+        };
     }
 };
 
 const getAllKeys = () => {
-    const customData = JSON.parse(fs.readFileSync(getFilePath('custom_rules.json')));
-    return Object.keys(customData);
+    try {
+        const customData = JSON.parse(fs.readFileSync(getFilePath('custom_rules.json')));
+        return Object.keys(customData);
+    } catch (e) {
+        return [];
+    }
 };
 
-// Now both functions are defined and exported
 module.exports = { getDefinition, getAllKeys, isValidKeyword };
