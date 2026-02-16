@@ -48,12 +48,23 @@ const getDefinition = async (keyword) => {
     if (scryCache[query]) return scryCache[query];
 
     // --- STEP 1: SCRYFALL FETCH ---
-    try {
+        try {
+        // We look for a REPRINT that is a COMMON. 
+        // This almost always hits a Core Set card designed for beginners.
         let response = await fetch(
-            `https://api.scryfall.com/cards/search?q=kw:"${encodeURIComponent(query)}"+r:common+-is:extra+not:digital`
+            `https://api.scryfall.com/cards/search?q=kw:"${encodeURIComponent(query)}"+r:common+is:reprint+-is:extra+not:digital&order=released&dir=desc`
         );
         let data = await response.json();
 
+        // Fallback 1: If no common reprint, try any common
+        if (data.object === 'error') {
+            response = await fetch(
+                `https://api.scryfall.com/cards/search?q=kw:"${encodeURIComponent(query)}"+r:common+-is:extra+not:digital&order=released&dir=desc`
+            );
+            data = await response.json();
+        }
+        
+        // Fallback 2: Total wildcard search
         if (data.object === 'error') {
             response = await fetch(
                 `https://api.scryfall.com/cards/search?q=kw:"${encodeURIComponent(query)}"+-is:extra+not:digital`
@@ -63,10 +74,18 @@ const getDefinition = async (keyword) => {
 
         if (data.data && data.data.length > 0) {
             const card = data.data[0];
+            // Log the card name and oracle text for debugging
+            console.log(`[SEARCH]: Keyword: ${query} | Found Card: ${card.name} | Set: ${card.set_name}`);
+            console.log(`[TEXT]: ${card.oracle_text}`);
+
             const oracleText = card.oracle_text || "";
 
-            const specificRegex = new RegExp(`${query}.*?\\(([^)]+)\\)`, 'i');
+            // This looks for the keyword, then ANY characters (non-greedy), then the parentheses.
+            // It ensures the parentheses we grab are the ones SHARING A LINE with the keyword.
+            const specificRegex = new RegExp(`(?:^|\\n)${query}.*?\\(([^)]+)\\)`, 'i');
             const specificMatch = oracleText.match(specificRegex);
+
+            // Only use generalMatch if specificMatch completely fails
             const generalMatch = oracleText.match(/\(([^)]+)\)/);
 
             const scryfallDefinition = specificMatch ? specificMatch[1] : (generalMatch ? generalMatch[1] : null);
