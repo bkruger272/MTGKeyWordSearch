@@ -45,37 +45,48 @@ const getDefinition = async (keyword) => {
     if (scryCache[query]) return scryCache[query];
 
     try {
-        // We use q=kw: to find cards that officially have the keyword.
-        // We exclude Lands to prevent the "{T}: Add {G}" issue (Connive).
+        // --- THE "HYBRID" SEARCH ---
+        // We look for any card containing the keyword. 
+        // We order by 'released' but we don't force 'asc' or 'desc' yet.
+        // We use 'unique=cards' to get a clean list of unique oracle texts.
         let response = await fetch(
-            `https://api.scryfall.com/cards/search?q=kw:"${encodeURIComponent(query)}"+-t:land+-is:extra+not:digital&order=released&dir=desc`
+            `https://api.scryfall.com/cards/search?q=fo:"${encodeURIComponent(query)}"+-is:extra+not:digital&unique=cards`
         );
         let data = await response.json();
 
         if (data.data && data.data.length > 0) {
-            // STRATEGY: Find the "Cleanest" card.
-            // We want a card where the text actually contains the keyword followed by parentheses.
+            // STRATEGY: Find the "Best Representative" card
+            // 1. Try to find a card where the keyword is at the START of a line with a parenthesis.
+            // 2. If that fails, find any card with the keyword + parenthesis.
             const card = data.data.find(c => {
                 const text = (c.oracle_text || "").toLowerCase();
-                return text.includes(`${query} (`); 
-            }) || data.data[0];
-            
-            let oracleText = card.oracle_text || "";
+                return text.includes(`\n${query} (`) || text.startsWith(`${query} (`);
+            }) || data.data.find(c => (c.oracle_text || "").toLowerCase().includes(`${query} (`)) 
+               || data.data[0];
 
-            // REGEX: 
-            // 1. Look for the keyword (allowing for hyphens like web-slinging)
-            // 2. Look for the first '(' on the SAME line.
-            // 3. Capture everything until the first ')'.
-            const sameLineRegex = new RegExp(`${query}[^\\n\\(]*?\\(([^)]+)\\)`, 'i');
-            const match = oracleText.match(sameLineRegex);
+            let oracleText = card.oracle_text || "";
+            
+            // REGEX: Focused but keeps internal symbols like {B} or {1}
+            // It looks for the keyword, then anything on the same line until a '('
+            const flexibleRegex = new RegExp(`${query}[^\\n\\(]*?\\(([^)]+)\\)`, 'i');
+            const match = oracleText.match(flexibleRegex);
 
             if (match && match[1]) {
-                // CLEANUP: Remove mana symbols like {1}{G}{W} or {T} that sneak into reminder text
-                const cleanDefinition = match[1].replace(/\{[^}]+\}/g, '').trim();
+                let definition = match[1].trim();
+
+                // SPECIFIC FIX: Web-slinging (Keep symbols, but clean up double spaces)
+                if (query.includes('slinging')) {
+                    definition = definition.replace(/\s\s+/g, ' '); 
+                }
+
+                // SPECIFIC FIX: Mill (Standardize it so it's not "Mill 3")
+                if (query === 'mill' && definition.toLowerCase().includes('library into your graveyard')) {
+                    definition = "Put the top card of your library into your graveyard.";
+                }
 
                 const result = {
-                    definition: cleanDefinition,
-                    name: query.charAt(0).toUpperCase() + query.slice(1), // Use the keyword as the name
+                    definition: definition, // We NO LONGER strip { } symbols here
+                    name: query.charAt(0).toUpperCase() + query.slice(1),
                     source: 'scryfall'
                 };
                 scryCache[query] = result;
@@ -89,15 +100,12 @@ const getDefinition = async (keyword) => {
     // --- STEP 2: CUSTOM RULES FALLBACK ---
     try {
         const customData = JSON.parse(fs.readFileSync(getFilePath('custom_rules.json')));
-        const key = query.replace('-', ''); // Handle hyphenated keys in JSON if needed
-        if (customData[query] || customData[key]) {
-            const result = { 
-                definition: customData[query] || customData[key], 
+        if (customData[query]) {
+            return { 
+                definition: customData[query], 
                 name: query.charAt(0).toUpperCase() + query.slice(1), 
                 source: 'custom' 
             };
-            scryCache[query] = result;
-            return result;
         }
     } catch (e) {}
 
