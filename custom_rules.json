@@ -21,6 +21,7 @@
     "equip": "Pay the cost to attach this permanent to a creature you control. Activate only as a sorcery.",
     "fight": "Each creature deals damage equal to its power to the other.",
     "mill": "To mill a card, a player puts the top card of their library into their graveyard.",
-    "evoke": "You may cast this spell for its evoke cost. If you do, it's sacrificed when it enters the battlefield.",
-    "toxic": "Players dealt combat damage by this creature also get a number of poison counters equal to its toxic value."
+    "toxic": "Players dealt combat damage by this creature also get a number of poison counters equal to its toxic value.",
+    "connive": "To have a creature connive, draw a card, then discard a card. If you discarded a nonland card, put a +1/+1 counter on this creature.",
+    "dredge N": "If you would draw a card, instead you may put exactly N cards from the top of your library into your graveyard. If you do, return this card from your graveyard to your hand."
 }
