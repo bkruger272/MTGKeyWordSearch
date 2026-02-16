@@ -23,7 +23,7 @@ const getAllKeys = () => {
             'coven', 'delirium', 'descend', 'fathomless descent', 'formidable', 
             'grandeur', 'hellbent', 'heroic', 'imprint', 'inspired', 'join forces', 
             'kinship', 'lieutenant', 'metalcraft', 'morbid', 'parley', 'radiance', 
-            'revolt', 'spell-mastery', 'threshold', 'undergrowth', 'will of the council',
+            'revolt', 'spell-mastery', 'threshold', 'undergrowth', 'will of the council',"Council's dilemma",'Collect evicence'
 
             // --- Card Types / Supertypes (Not keywords) ---
             'artifact', 'creature', 'enchantment', 'instant', 'sorcery', 'land', 
@@ -34,7 +34,7 @@ const getAllKeys = () => {
 
             // --- Modern/Specific Mechanics that are usually junk without context ---
             'historic', 'modified', 'party', 'clue', 'food', 'treasure', 'blood', 
-            'incubate', 'role', 'map'
+            'incubate', 'role', 'map', 'Cumulative upkeep', 'Daybound', 'Nightbound', 'Choose a background'
         ];
 
         const rawList = [
