@@ -12,10 +12,27 @@ const scryCache = {};
 
 const getAllKeys = () => {
     try {
+        // 1. Get Custom Keys
         const customData = JSON.parse(fs.readFileSync(getFilePath('custom_rules.json')));
-        return Object.keys(customData);
+        const customKeys = Object.keys(customData);
+
+        // 2. Get Scryfall Keywords (Abilities, Actions, and Words)
+        const rawData = fs.readFileSync(getFilePath('Keywords.json'));
+        const data = JSON.parse(rawData);
+        
+        // This ensures Connive (Action) and Convoke (Ability) are both included
+        const scryfallKeys = [
+            ...data.data.abilityWords, 
+            ...data.data.keywordAbilities, 
+            ...data.data.keywordActions
+        ];
+
+        // 3. Combine, Remove Duplicates, and Sort
+        const combined = [...new Set([...customKeys, ...scryfallKeys])];
+        return combined.sort((a, b) => a.localeCompare(b));
+
     } catch (e) {
-        console.error("Error reading custom keys:", e);
+        console.error("Error building master key list:", e);
         return [];
     }
 };
