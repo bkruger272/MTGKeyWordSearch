@@ -21,5 +21,6 @@
     "equip": "Pay the cost to attach this permanent to a creature you control. Activate only as a sorcery.",
     "fight": "Each creature deals damage equal to its power to the other.",
     "mill": "To mill a card, a player puts the top card of their library into their graveyard.",
-    "evoke": "You may cast this spell for its evoke cost. If you do, it's sacrificed when it enters the battlefield."
+    "evoke": "You may cast this spell for its evoke cost. If you do, it's sacrificed when it enters the battlefield.",
+    "toxic": "Players dealt combat damage by this creature also get a number of poison counters equal to its toxic value."
 }

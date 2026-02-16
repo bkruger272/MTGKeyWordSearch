@@ -2,28 +2,14 @@ const fs = require('fs');
 const path = require('path');
 const Scry = require("scryfall-sdk");
 
-Scry.setAgent("MTG-Ability-Scanner", "1.0.2");
+Scry.setAgent("MTG-Ability-Lookup", "1.0.2");
 
 const getFilePath = (filename) => path.join(__dirname, '../../', filename);
 
-// Simple in-memory cache to prevent multiple API calls for the same word
 const scryCache = {};
 
-const isValidKeyword = (term) => {
-    try {
-        const rawData = fs.readFileSync(getFilePath('Keywords.json'));
-        const data = JSON.parse(rawData);
-        const allKeywords = [
-            ...data.data.abilityWords, 
-            ...data.data.keywordAbilities, 
-            ...data.data.keywordActions
-        ].map(k => k.toLowerCase());
-        
-        return allKeywords.includes(term.toLowerCase().trim());
-    } catch (e) {
-        return false;
-    }
-};
+// --- HELPER FUNCTIONS ---
+
 const getAllKeys = () => {
     try {
         const customData = JSON.parse(fs.readFileSync(getFilePath('custom_rules.json')));
@@ -33,52 +19,90 @@ const getAllKeys = () => {
         return [];
     }
 };
-// backend -> scryfallService.js
+
+const isValidKeyword = (term) => {
+    const query = term.toLowerCase().trim();
+    const customKeys = getAllKeys().map(k => k.toLowerCase());
+    
+    try {
+        const rawData = fs.readFileSync(getFilePath('Keywords.json'));
+        const data = JSON.parse(rawData);
+        const allKeywords = [
+            ...data.data.abilityWords, 
+            ...data.data.keywordAbilities, 
+            ...data.data.keywordActions
+        ].map(k => k.toLowerCase());
+        
+        return allKeywords.includes(query) || customKeys.includes(query);
+    } catch (e) {
+        return customKeys.includes(query);
+    }
+};
+
+// --- MAIN SEARCH LOGIC ---
 
 const getDefinition = async (keyword) => {
     const query = keyword.toLowerCase().trim();
+    
+    // Check Cache
     if (scryCache[query]) return scryCache[query];
 
-    // 1. Check Custom Rules first
+    // --- STEP 1: SCRYFALL FETCH ---
     try {
-        const customData = JSON.parse(fs.readFileSync(getFilePath('custom_rules.json')));
-        if (customData[query]) {
-            return { definition: customData[query], source: 'custom' };
-        }
-    } catch (e) {}
+        let response = await fetch(
+            `https://api.scryfall.com/cards/search?q=kw:"${encodeURIComponent(query)}"+r:common+-is:extra+not:digital`
+        );
+        let data = await response.json();
 
-    // 2. Scryfall Fetch with Validation
-    try {
-            const response = await fetch(
-                `https://api.scryfall.com/cards/search?q=kw:"${encodeURIComponent(query)}"+-is:extra+not:digital&order=released&dir=asc`
+        if (data.object === 'error') {
+            response = await fetch(
+                `https://api.scryfall.com/cards/search?q=kw:"${encodeURIComponent(query)}"+-is:extra+not:digital`
             );
-            const data = await response.json();
+            data = await response.json();
+        }
 
-            if (data.object === 'error' || !data.data || data.data.length === 0) {
-                return { definition: null, source: 'not_found' };
-            }
-
+        if (data.data && data.data.length > 0) {
             const card = data.data[0];
             const oracleText = card.oracle_text || "";
 
-            // STAGE 1: Try to find parentheses immediately following the keyword
             const specificRegex = new RegExp(`${query}.*?\\(([^)]+)\\)`, 'i');
             const specificMatch = oracleText.match(specificRegex);
-
-            // STAGE 2: If that fails, just grab the first set of parentheses on the whole card
             const generalMatch = oracleText.match(/\(([^)]+)\)/);
 
-            const resultText = specificMatch ? specificMatch[1] : (generalMatch ? generalMatch[1] : null);
+            const scryfallDefinition = specificMatch ? specificMatch[1] : (generalMatch ? generalMatch[1] : null);
 
-            return {
-                definition: resultText,
-                name: card.name,
-                source: 'scryfall'
-            };
-
-        } catch (err) {
-            return { definition: null, source: 'error' };
+            if (scryfallDefinition && scryfallDefinition.trim().length > 0) {
+                const result = {
+                    definition: scryfallDefinition,
+                    name: card.name,
+                    source: 'scryfall'
+                };
+                scryCache[query] = result;
+                return result;
+            }
+            // If no definition found in Scryfall text, we fall through to Step 2
         }
-    };
+    } catch (err) {
+        console.error("Scryfall fetch error:", err);
+    }
+
+    // --- STEP 2: CUSTOM RULES FALLBACK ---
+    try {
+        const customData = JSON.parse(fs.readFileSync(getFilePath('custom_rules.json')));
+        if (customData[query]) {
+            const result = { 
+                definition: customData[query], 
+                name: query.charAt(0).toUpperCase() + query.slice(1), 
+                source: 'custom' 
+            };
+            scryCache[query] = result;
+            return result;
+        }
+    } catch (e) {
+        console.error("Custom rules error:", e);
+    }
+
+    return { definition: null, source: 'not_found' };
+};
 
 module.exports = { getDefinition, getAllKeys, isValidKeyword };
