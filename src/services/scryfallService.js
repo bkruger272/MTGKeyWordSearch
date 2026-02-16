@@ -12,25 +12,41 @@ const scryCache = {};
 
 const getAllKeys = () => {
     try {
-        // 1. Get Custom Keys
         const customData = JSON.parse(fs.readFileSync(getFilePath('custom_rules.json')));
         const customKeys = Object.keys(customData);
 
-        // 2. Get Scryfall Keywords (Abilities, Actions, and Words)
         const rawData = fs.readFileSync(getFilePath('Keywords.json'));
         const data = JSON.parse(rawData);
-        
-        // This ensures Connive (Action) and Convoke (Ability) are both included
+
+        // BLACKLIST: Add things here that show up in suggestions but you don't want
+        const blacklist = [
+            // --- Ability Words (The "flavor" headers that don't have rules) ---
+            'constellation', 'landfall', 'adamant', 'addictive', 'corrupted', 
+            'coven', 'delirium', 'descend', 'fathomless descent', 'formidable', 
+            'grandeur', 'hellbent', 'heroic', 'imprint', 'inspired', 'join forces', 
+            'kinship', 'lieutenant', 'metalcraft', 'morbid', 'parley', 'radiance', 
+            'revolt', 'spell-mastery', 'threshold', 'undergrowth', 'will of the council',
+
+            // --- Card Types / Supertypes (Not keywords) ---
+            'artifact', 'creature', 'enchantment', 'instant', 'sorcery', 'land', 
+            'planeswalker', 'tribal', 'legendary', 'basic', 'snow', 'world',
+
+            // --- Counters / Terms (Not keyword mechanics) ---
+            'energy', 'poison', 'experience', 'ticket', 'attraction', 'stickers',
+
+            // --- Modern/Specific Mechanics that are usually junk without context ---
+            'historic', 'modified', 'party', 'clue', 'food', 'treasure', 'blood', 
+            'incubate', 'role', 'map'
+        ];
+
         const scryfallKeys = [
             ...data.data.abilityWords, 
             ...data.data.keywordAbilities, 
             ...data.data.keywordActions
-        ];
+        ].filter(k => !blacklist.includes(k.toLowerCase())); // FILTER OUT BLACKLIST
 
-        // 3. Combine, Remove Duplicates, and Sort
         const combined = [...new Set([...customKeys, ...scryfallKeys])];
         return combined.sort((a, b) => a.localeCompare(b));
-
     } catch (e) {
         console.error("Error building master key list:", e);
         return [];
