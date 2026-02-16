@@ -45,33 +45,37 @@ const getDefinition = async (keyword) => {
     if (scryCache[query]) return scryCache[query];
 
     try {
-        // IMPROVED FETCH: Look for cards where the oracle text START with the keyword
-        // This avoids cards like Aetherstream Leopard that have multiple mechanics.
+        // We use q=kw: to find cards that officially have the keyword.
+        // We exclude Lands to prevent the "{T}: Add {G}" issue (Connive).
         let response = await fetch(
-            `https://api.scryfall.com/cards/search?q=kw:"${encodeURIComponent(query)}"+-is:extra+not:digital&order=released&dir=desc`
+            `https://api.scryfall.com/cards/search?q=kw:"${encodeURIComponent(query)}"+-t:land+-is:extra+not:digital&order=released&dir=desc`
         );
         let data = await response.json();
 
         if (data.data && data.data.length > 0) {
-            // STEP A: Try to find a card in the results that has the "cleanest" text
-            // We want a card where the keyword and its reminder text are the ONLY things.
-            const card = data.data.find(c => (c.oracle_text || "").toLowerCase().startsWith(query)) || data.data[0];
+            // STRATEGY: Find the "Cleanest" card.
+            // We want a card where the text actually contains the keyword followed by parentheses.
+            const card = data.data.find(c => {
+                const text = (c.oracle_text || "").toLowerCase();
+                return text.includes(`${query} (`); 
+            }) || data.data[0];
             
-            const oracleText = card.oracle_text || "";
+            let oracleText = card.oracle_text || "";
 
-            // LOGGING FOR YOU: This will show up in your Render logs
-            console.log(`[DEBUG] Keyword: ${query} | Card Found: ${card.name}`);
-            console.log(`[DEBUG] Raw Oracle: ${oracleText}`);
-
-            // NEW REGEX: It looks for the keyword, some spaces, and then the (reminder text)
-            // The [^\n]* ensures it STAYs ON THE SAME LINE. It won't jump to Energy on the next line.
+            // REGEX: 
+            // 1. Look for the keyword (allowing for hyphens like web-slinging)
+            // 2. Look for the first '(' on the SAME line.
+            // 3. Capture everything until the first ')'.
             const sameLineRegex = new RegExp(`${query}[^\\n\\(]*?\\(([^)]+)\\)`, 'i');
             const match = oracleText.match(sameLineRegex);
 
             if (match && match[1]) {
+                // CLEANUP: Remove mana symbols like {1}{G}{W} or {T} that sneak into reminder text
+                const cleanDefinition = match[1].replace(/\{[^}]+\}/g, '').trim();
+
                 const result = {
-                    definition: match[1],
-                    name: card.name,
+                    definition: cleanDefinition,
+                    name: query.charAt(0).toUpperCase() + query.slice(1), // Use the keyword as the name
                     source: 'scryfall'
                 };
                 scryCache[query] = result;
@@ -83,15 +87,17 @@ const getDefinition = async (keyword) => {
     }
 
     // --- STEP 2: CUSTOM RULES FALLBACK ---
-    // (Keep your existing Custom Rules logic here)
     try {
         const customData = JSON.parse(fs.readFileSync(getFilePath('custom_rules.json')));
-        if (customData[query]) {
-            return { 
-                definition: customData[query], 
+        const key = query.replace('-', ''); // Handle hyphenated keys in JSON if needed
+        if (customData[query] || customData[key]) {
+            const result = { 
+                definition: customData[query] || customData[key], 
                 name: query.charAt(0).toUpperCase() + query.slice(1), 
                 source: 'custom' 
             };
+            scryCache[query] = result;
+            return result;
         }
     } catch (e) {}
 
