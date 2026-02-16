@@ -23,7 +23,7 @@ const getAllKeys = () => {
             'coven', 'delirium', 'descend', 'fathomless descent', 'formidable', 
             'grandeur', 'hellbent', 'heroic', 'imprint', 'inspired', 'join forces', 
             'kinship', 'lieutenant', 'metalcraft', 'morbid', 'parley', 'radiance', 
-            'revolt', 'spell-mastery', 'threshold', 'undergrowth', 'will of the council',"Council's dilemma",'Collect evicence'
+            'revolt', 'spell-mastery', 'threshold', 'undergrowth', 'will of the council',"Council's dilemma",'Collect evicence',
 
             // --- Card Types / Supertypes (Not keywords) ---
             'artifact', 'creature', 'enchantment', 'instant', 'sorcery', 'land', 
