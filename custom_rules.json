@@ -23,5 +23,5 @@
     "mill": "To mill a card, a player puts the top card of their library into their graveyard.",
     "toxic": "Players dealt combat damage by this creature also get a number of poison counters equal to its toxic value.",
     "connive": "To have a creature connive, draw a card, then discard a card. If you discarded a nonland card, put a +1/+1 counter on this creature.",
-    "dredge N": "If you would draw a card, instead you may put exactly N cards from the top of your library into your graveyard. If you do, return this card from your graveyard to your hand."
+    "dredge": "If you would draw a card, instead you may put exactly N cards from the top of your library into your graveyard. If you do, return this card from your graveyard to your hand."
 }
