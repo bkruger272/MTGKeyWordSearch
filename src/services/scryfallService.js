@@ -40,86 +40,60 @@ const isValidKeyword = (term) => {
 };
 
 // --- MAIN SEARCH LOGIC ---
-
 const getDefinition = async (keyword) => {
     const query = keyword.toLowerCase().trim();
-    
-    // Check Cache
     if (scryCache[query]) return scryCache[query];
 
-    // --- STEP 1: SCRYFALL FETCH ---
-        try {
-        // We look for a REPRINT that is a COMMON. 
-        // This almost always hits a Core Set card designed for beginners.
+    try {
+        // IMPROVED FETCH: Look for cards where the oracle text START with the keyword
+        // This avoids cards like Aetherstream Leopard that have multiple mechanics.
         let response = await fetch(
-            `https://api.scryfall.com/cards/search?q=kw:"${encodeURIComponent(query)}"+r:common+is:reprint+-is:extra+not:digital&order=released&dir=desc`
+            `https://api.scryfall.com/cards/search?q=kw:"${encodeURIComponent(query)}"+-is:extra+not:digital&order=released&dir=desc`
         );
         let data = await response.json();
 
-        // Fallback 1: If no common reprint, try any common
-        if (data.object === 'error') {
-            response = await fetch(
-                `https://api.scryfall.com/cards/search?q=kw:"${encodeURIComponent(query)}"+r:common+-is:extra+not:digital&order=released&dir=desc`
-            );
-            data = await response.json();
-        }
-        
-        // Fallback 2: Total wildcard search
-        if (data.object === 'error') {
-            response = await fetch(
-                `https://api.scryfall.com/cards/search?q=kw:"${encodeURIComponent(query)}"+-is:extra+not:digital`
-            );
-            data = await response.json();
-        }
-
         if (data.data && data.data.length > 0) {
-            const card = data.data[0];
-            // Log the card name and oracle text for debugging
-            console.log(`[SEARCH]: Keyword: ${query} | Found Card: ${card.name} | Set: ${card.set_name}`);
-            console.log(`[TEXT]: ${card.oracle_text}`);
-
+            // STEP A: Try to find a card in the results that has the "cleanest" text
+            // We want a card where the keyword and its reminder text are the ONLY things.
+            const card = data.data.find(c => (c.oracle_text || "").toLowerCase().startsWith(query)) || data.data[0];
+            
             const oracleText = card.oracle_text || "";
 
-            // This looks for the keyword, then ANY characters (non-greedy), then the parentheses.
-            // It ensures the parentheses we grab are the ones SHARING A LINE with the keyword.
-            const specificRegex = new RegExp(`(?:^|\\n)${query}.*?\\(([^)]+)\\)`, 'i');
-            const specificMatch = oracleText.match(specificRegex);
+            // LOGGING FOR YOU: This will show up in your Render logs
+            console.log(`[DEBUG] Keyword: ${query} | Card Found: ${card.name}`);
+            console.log(`[DEBUG] Raw Oracle: ${oracleText}`);
 
-            // Only use generalMatch if specificMatch completely fails
-            const generalMatch = oracleText.match(/\(([^)]+)\)/);
+            // NEW REGEX: It looks for the keyword, some spaces, and then the (reminder text)
+            // The [^\n]* ensures it STAYs ON THE SAME LINE. It won't jump to Energy on the next line.
+            const sameLineRegex = new RegExp(`${query}[^\\n\\(]*?\\(([^)]+)\\)`, 'i');
+            const match = oracleText.match(sameLineRegex);
 
-            const scryfallDefinition = specificMatch ? specificMatch[1] : (generalMatch ? generalMatch[1] : null);
-
-            if (scryfallDefinition && scryfallDefinition.trim().length > 0) {
+            if (match && match[1]) {
                 const result = {
-                    definition: scryfallDefinition,
+                    definition: match[1],
                     name: card.name,
                     source: 'scryfall'
                 };
                 scryCache[query] = result;
                 return result;
             }
-            // If no definition found in Scryfall text, we fall through to Step 2
         }
     } catch (err) {
-        console.error("Scryfall fetch error:", err);
+        console.error("Scryfall error:", err);
     }
 
     // --- STEP 2: CUSTOM RULES FALLBACK ---
+    // (Keep your existing Custom Rules logic here)
     try {
         const customData = JSON.parse(fs.readFileSync(getFilePath('custom_rules.json')));
         if (customData[query]) {
-            const result = { 
+            return { 
                 definition: customData[query], 
                 name: query.charAt(0).toUpperCase() + query.slice(1), 
                 source: 'custom' 
             };
-            scryCache[query] = result;
-            return result;
         }
-    } catch (e) {
-        console.error("Custom rules error:", e);
-    }
+    } catch (e) {}
 
     return { definition: null, source: 'not_found' };
 };
