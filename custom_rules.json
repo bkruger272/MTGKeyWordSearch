@@ -10,5 +10,7 @@
     "dredge": "If you would draw a card, instead you may put exactly N cards from the top of your library into your graveyard. If you do, return this card from your graveyard to your hand.",
     "annihilator": "Whenever this creature attacks, defending player sacrifices N permanents.",
     "unearth": "Return this card from your graveyard to the battlefield. It gains haste. Exile it at the beginning of the next end step or if it would leave the battlefield. Unearth only as a sorcery.",
-    "toxic": "Toxic N, When a creature with Toxic N deals combat damage to a player, that player receives N poison counters."
+    "toxic": "Toxic N, When a creature with Toxic N deals combat damage to a player, that player receives N poison counters.",
+    "cohort": "To activate a cohort ability, you must tap the creature that has the ability, plus one other untapped Ally creature you control.",
+    "mobilize": "whenever a creature with Mobilize N attacks, you create red Warrior creature tokens that enter the battlefield tapped and attacking. These tokens are sacrificed at the beginning of the next end step."
 }
