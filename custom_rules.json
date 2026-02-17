@@ -13,4 +13,5 @@
     "toxic": "Toxic N, When a creature with Toxic N deals combat damage to a player, that player receives N poison counters.",
     "cohort": "To activate a cohort ability, you must tap the creature that has the ability, plus one other untapped Ally creature you control.",
     "mobilize": "whenever a creature with Mobilize N attacks, you create red Warrior creature tokens that enter the battlefield tapped and attacking. These tokens are sacrificed at the beginning of the next end step."
+    ,"flying": "This creature can only be blocked by creatures with flying or reach."
 }
