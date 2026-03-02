@@ -24,6 +24,7 @@ const getAllKeys = () => {
             'grandeur', 'hellbent', 'heroic', 'imprint', 'inspired', 'join forces', 
             'kinship', 'lieutenant', 'metalcraft', 'morbid', 'parley', 'radiance', 
             'revolt', 'spell-mastery', 'threshold', 'undergrowth', 'will of the council',"Council's dilemma",'Collect evicence',
+            'hideway',
 
             // --- Card Types / Supertypes (Not keywords) ---
             'artifact', 'creature', 'enchantment', 'instant', 'sorcery', 'land', 
@@ -34,7 +35,7 @@ const getAllKeys = () => {
 
             // --- Modern/Specific Mechanics that are usually junk without context ---
             'historic', 'modified', 'party', 'clue', 'food', 'treasure', 'blood', 
-            'incubate', 'role', 'map', 'Cumulative upkeep', 'Daybound', 'Nightbound', 'Choose a background'
+            'incubate', 'role', 'map', 'Cumulative upkeep', 'Daybound', 'Nightbound', 'Choose a background','kinfall'
         ];
 
         const rawList = [
@@ -80,6 +81,8 @@ const isValidKeyword = (term) => {
 };
 
 // --- MAIN SEARCH LOGIC ---
+// ... (keep your imports and helper functions the same)
+
 const getDefinition = async (keyword) => {
     const query = keyword.toLowerCase().trim();
     if (scryCache[query]) return scryCache[query];
@@ -87,7 +90,6 @@ const getDefinition = async (keyword) => {
     // --- 1. CUSTOM RULES (High Priority) ---
     try {
         const customData = JSON.parse(fs.readFileSync(getFilePath('custom_rules.json')));
-        // Check for the key regardless of case
         const customKey = Object.keys(customData).find(k => k.toLowerCase() === query);
         
         if (customKey) {
@@ -103,25 +105,22 @@ const getDefinition = async (keyword) => {
 
     // --- 2. SCRYFALL FALLBACK ---
     try {
-        // We removed the -set:tla filter so Avatar cards can still be searched
         let response = await fetch(
-            `https://api.scryfall.com/cards/search?q=kw:"${encodeURIComponent(query)}"+-is:extra+not:digital&order=released&dir=asc`
+            `https://api.scryfall.com/cards/search?q=kw:"${encodeURIComponent(query)}"+not:digital&order=released&dir=asc`
         );
         let data = await response.json();
 
         if (data.data && data.data.length > 0) {
-            // Pick a card that actually has the keyword followed by a parenthesis
-            const card = data.data.find(c => {
+            // Try to find a card with reminder text first (Core Sets/Starter Sets)
+            const cardWithReminder = data.data.find(c => {
                 const text = (c.oracle_text || "").toLowerCase();
-                return text.includes(`${query} (`) || text.includes(`${query} — (`);
-            }) || data.data[0];
+                return text.includes(`(${query}`) || text.includes(`(${query.toLowerCase()}`) || text.includes('(');
+            });
 
-            console.log(`[LOG] Searching for: ${query} | Pulled from card: ${card.name}`);
-
+            const card = cardWithReminder || data.data[0];
             let oracleText = card.oracle_text || "";
 
-            // REGEX: It looks for the word, then looks specifically for the FIRST ( ) 
-            // that appears before any other NEW keyword is mentioned.
+            // Improved Regex: Handles "Flying (This creature...)" and "Flying — (This creature...)"
             const regex = new RegExp(`${query}[^\\(]*?\\(([^)]+)\\)`, 'i');
             const match = oracleText.match(regex);
 
@@ -133,7 +132,16 @@ const getDefinition = async (keyword) => {
                 };
                 scryCache[query] = result;
                 return result;
-            }
+            } 
+            
+            // NEW FALLBACK: If Scryfall found the keyword but NO reminder text (e.g. Flying)
+            // We return a friendly "known keyword" message instead of failing.
+            const fallbackResult = {
+                definition: `Confirmed keyword: ${query.charAt(0).toUpperCase() + query.slice(1)}. (This is a core mechanic with no reminder text on this card).`,
+                name: query.charAt(0).toUpperCase() + query.slice(1),
+                source: 'scryfall_confirmed'
+            };
+            return fallbackResult;
         }
     } catch (err) {
         console.error("Scryfall error:", err);
