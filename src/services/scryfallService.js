@@ -104,24 +104,30 @@ const getDefinition = async (keyword) => {
     } catch (e) {}
 
     // --- 2. SCRYFALL FALLBACK ---
-    try {
+try {
+        // We sort by 'released' to get older Core Sets which usually have the best reminder text
         let response = await fetch(
             `https://api.scryfall.com/cards/search?q=kw:"${encodeURIComponent(query)}"+not:digital&order=released&dir=asc`
         );
         let data = await response.json();
 
         if (data.data && data.data.length > 0) {
-            // Try to find a card with reminder text first (Core Sets/Starter Sets)
-            const cardWithReminder = data.data.find(c => {
-                const text = (c.oracle_text || "").toLowerCase();
-                return text.includes(`(${query}`) || text.includes(`(${query.toLowerCase()}`) || text.includes('(');
+            
+            // NEW & IMPROVED SEARCH: 
+            // We only want a card where the keyword is immediately followed by a parenthesis.
+            const regex = new RegExp(`${query}[^\\(]*?\\(([^)]+)\\)`, 'i');
+
+            const cardWithExactReminder = data.data.find(c => {
+                const text = c.oracle_text || "";
+                // Does THIS specific card have "(reminder text)" for THIS specific keyword?
+                return regex.test(text);
             });
 
-            const card = cardWithReminder || data.data[0];
+            // If we found a card with the right reminder text, use it. 
+            // Otherwise, use the first card found.
+            const card = cardWithExactReminder || data.data[0];
             let oracleText = card.oracle_text || "";
 
-            // Improved Regex: Handles "Flying (This creature...)" and "Flying — (This creature...)"
-            const regex = new RegExp(`${query}[^\\(]*?\\(([^)]+)\\)`, 'i');
             const match = oracleText.match(regex);
 
             if (match && match[1]) {
@@ -134,14 +140,12 @@ const getDefinition = async (keyword) => {
                 return result;
             } 
             
-            // NEW FALLBACK: If Scryfall found the keyword but NO reminder text (e.g. Flying)
-            // We return a friendly "known keyword" message instead of failing.
-            const fallbackResult = {
-                definition: `Confirmed keyword: ${query.charAt(0).toUpperCase() + query.slice(1)}. (This is a core mechanic with no reminder text on this card).`,
+            // FALLBACK for core mechanics with NO reminder text (like Flying on most cards)
+            return {
+                definition: `Confirmed keyword: ${query.charAt(0).toUpperCase() + query.slice(1)}. This is a standard MTG mechanic. (No specific reminder text found in the Grimoire's current records).`,
                 name: query.charAt(0).toUpperCase() + query.slice(1),
                 source: 'scryfall_confirmed'
             };
-            return fallbackResult;
         }
     } catch (err) {
         console.error("Scryfall error:", err);
