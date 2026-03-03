@@ -13,7 +13,7 @@ const BLACKLIST = [
     'energy', 'poison', 'experience', 'ticket', 'attraction', 'stickers',
     'historic', 'modified', 'party', 'clue', 'food', 'treasure', 'blood', 
     'incubate', 'role', 'map', 'cumulative upkeep', 'daybound', 'nightbound', 
-    'choose a background'
+    'choose a background','play','planeswalk'
 ];
 
 // 1. handleSearch: Now handles multi-terms AND respects Custom Rules first
