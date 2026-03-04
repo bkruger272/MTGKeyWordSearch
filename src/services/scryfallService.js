@@ -154,4 +154,23 @@ try {
     return { definition: null, source: 'not_found' };
 };
 
-module.exports = { getDefinition, getAllKeys, isValidKeyword };
+const getKeywordsFromCardName = async (cardName) => {
+    try {
+        // Search for the exact card name
+        const response = await fetch(
+            `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cardName)}`
+        );
+        const card = await response.json();
+
+        if (card && card.keywords) {
+            // Return the keywords found on the card (e.g., ["Flying", "First strike"])
+            return card.keywords;
+        }
+        return [];
+    } catch (err) {
+        console.error("Error fetching card keywords:", err);
+        return [];
+    }
+};
+
+module.exports = { getDefinition, getAllKeys, isValidKeyword, getKeywordsFromCardName };

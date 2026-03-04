@@ -65,3 +65,15 @@ exports.getKeys = (req, res) => {
         res.status(500).json([]);
     }
 };
+
+exports.getCardKeywords = async (req, res) => {
+    const cardName = req.query.name;
+    if (!cardName) return res.json([]);
+
+    try {
+        const keywords = await scryService.getKeywordsFromCardName(cardName);
+        res.json(keywords);
+    } catch (error) {
+        res.status(500).json([]);
+    }
+};
